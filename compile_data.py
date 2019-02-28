@@ -79,18 +79,27 @@ class CompileData(object):
         num_races = num_races.drop(['sex','race_date','race_location','min_time','temp',
                                    'race_city','lat,lon','rainfall','wind','metersup','std'],axis=1)
         num_races.rename(index=str,columns={"name":"name","race_title":"num_races"},inplace=True)
+
+        #join num races ran to main dataframe
         final_data = final_data.join(num_races.set_index('name'), on='name')
+
+        #next few lines unused
         final_data["race_date"] = pd.to_datetime(final_data["race_date"])
         final_data["first_date"] = pd.to_datetime(final_data["first_date"])
 
         final_data['time_btwn'] = (final_data["race_date"] - final_data["first_date"]).dt.days#) / final_data[num_races]
         final_data['avg_time_btwn'] = final_data['time_btwn'] / final_data['num_races']
         final_data = final_data.drop(['time_btwn','first_date'],axis=1)
-        #avgtimes, temps, wind, and rain for each race
+
+
+        #avgtimes,std, metersup, temps, wind, and rain for each race type (5k, 10k, HM, Mar)
         avgtimes = df_previous_races.groupby(['name','race_title']).mean().reset_index()
 
+        #STACK INTO ONE RUNNER PER ROW. 
         times = avgtimes.set_index(['name','race_title']).unstack()
 
+
+        #number of times ran previous races
         racecounts= df_previous_races.groupby(['name','race_title']).count().reset_index()
         racecounts = racecounts.drop(['sex','race_date','min_time'],axis=1)
 
@@ -98,7 +107,7 @@ class CompileData(object):
         racecounts = racecounts.drop(['race_city','lat,lon','rainfall','temp','wind','metersup','std'],axis=1)
         racecounts.rename(index=str,columns={"name":"name","race_title":"race_title","race_location":"num_races"},inplace=True)
 
-
+        #stack into one runner per row
         rcounts = racecounts.set_index(['name','race_title']).unstack()
 
 

@@ -5,42 +5,57 @@ from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 import re
 from sklearn.model_selection import GridSearchCV
 import matplotlib.pyplot as plt
-
+import merge_data
+import compile_data
+import run_race_model
+        
 
 class PredictTime(object):
-    """Get model that predicts time. Optionally save plots. highest level class that calls RunRaceModel 
-     outputs: PredictTime.model (trained random forest model), PredictTime.xtrain,PredictTime.ytrain,
+    """Get model that predicts time. Optionally save plots. highest level class that calls RunRaceModel. 
+     member variables: PredictTime.model (trained random forest model), PredictTime.xtrain,PredictTime.ytrain,
     PredictTime.xtest,PredictTime.ytest, PredictTime.explainer (LimeTabularExplainer see lime docs for how to run)
     to make a prediction call PredictTime.model.predict(data)
     data should have same format as PredictTime.model.xtrain"""
-    def __init__(self, config,datafile):
+    def __init__(self, config):
         self.config = config
-        self.datafile = datafile
-        
-        
-    def run_model(self):
-        import merge_data
-        import compile_data
-        import run_race_model
-        eda = pd.read_csv(self.datafile)
+                
+    def clean_data(self):
+        """Given datafile in RunConfig, this merges that dataframe with the elevation data. Then it stacks the dataframe so that each runner is one row of the data frame (previous racetimes, weather, and elevation are averaged so as to occupy one cell in the runner's row for each race type (5k, 10k, HM, Mar))""" 
 
-        eda = eda.drop(['Unnamed: 0','Unnamed: 0.1','chip_time','gun_time','position','rb_personal_best',
-               'rb_season_best','race_data','uniqueID','chip_time_corr','gun_time_corr','meeting_id','terrain'],axis=1)
-        eda.replace('--',0.0,inplace=True)
+        #read in data. this is race time finisher lists combined with weather data
+        race_results = pd.read_csv(self.config.datafile)
 
-        md = merge_data.MergeData(self.config,eda)
-        eda=md.df
+        #include elevation data
+        merge_race_data_with_gpx = merge_data.MergeData(self.config,race_results)
+        race_results=merge_race_data_with_gpx.df
         
         #compile data holds dataframe in compile_data.feed_data
-        compiled_data = compile_data.CompileData(self.config,eda)
-        runracemodel = run_race_model.RunRaceModel(self.config,compiled_data.feed_data)
+        #"CompileData" brings finisher list where each row is a single time
+        #for one runner and stacks it so that each runner occupies one row
+        #which includes their average times (5k,10k,HM,Mar) among other variables 
+        compiled_data = compile_data.CompileData(self.config,race_results)
+        self.all_data = compiled_data.feed_data 
+
+        
+    def train_model(self):
+        #class to train a random forest model
+        runracemodel = run_race_model.RunRaceModel(self.config,self.all_data)
+
+        #selects features using forward selection algorithm
         runracemodel.select_features()
+
+        #trains random forest model, uses gridsearch to tune hyperparameters 
         runracemodel.run_model()
+
+        #make easily accessible
         self.model=runracemodel.model
         self.Xtrain = runracemodel.Xtrain
         self.Xtest=runracemodel.Xtest
         self.ytrain = runracemodel.ytrain
         self.ytest=runracemodel.ytest
+
+
+        #initialize lime---need to find categorical indices
         import lime
         import lime.lime_tabular
         cat_index = []
@@ -56,6 +71,8 @@ class PredictTime(object):
                                                            verbose=True, mode='regression',
                                                            discretize_continuous=True)
         
+
+        #print model performance
         self.trainpred = self.model.predict(self.Xtrain)
         self.testpred = self.model.predict(self.Xtest)
         print("MAPE for test set = ",self.mean_absolute_percentage_error(self.ytest,self.testpred))

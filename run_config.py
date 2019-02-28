@@ -18,3 +18,6 @@ class RunConfig:
     first_time_running_race =True
     race_to_predict = 'Mar'
 
+
+    #file that contains racetime data (scraped from runbritain) and weather datacombined
+    datafile = "race_and_weather_data.csv"
