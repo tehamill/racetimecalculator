@@ -5,7 +5,7 @@ import predict_time
 
 def main():
     config = run_config.RunConfig
-    #predict time takes config,datafile. datafile should have weather included in it
+
     
     race_model = predict_time.PredictTime(config)
     race_model.clean_data()
