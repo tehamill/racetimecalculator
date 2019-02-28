@@ -13,8 +13,7 @@ class MergeData(object):
         self.config = config
         self.df = df
         self.merge_with_gpx()
-        #self.racesdf = racesdf
-        #self.weathers= weather
+
     
     
     def merge_with_gpx(self):
